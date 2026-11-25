@@ -230,6 +230,31 @@ func TestEndToEnd(t *testing.T) {
 	}
 }
 
+func TestAllowedHost(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.DatabaseURL = "sqlite://" + filepath.Join(t.TempDir(), "host.db")
+	cfg.AllowedHost = "127.0.0.1:8080"
+	cfg.UIAuth = false
+	s, err := New(context.Background(), cfg, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	for _, path := range []string{"/", "/requests", "/openai/v1/responses"} {
+		w := httptest.NewRecorder()
+		s.Handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://other.example:8080"+path, nil))
+		if w.Code != http.StatusMisdirectedRequest {
+			t.Errorf("%s with unexpected host: got %d", path, w.Code)
+		}
+	}
+	w := httptest.NewRecorder()
+	s.Handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8080/healthz", nil))
+	if w.Code != http.StatusOK {
+		t.Errorf("health check with allowed host: got %d", w.Code)
+	}
+}
+
 // The proxy must keep working when the database cannot be opened at all.
 func TestProxyWithoutDatabase(t *testing.T) {
 	_, hs := setup(t, "sqlite:///proc/llmtee-cannot-exist/x.db")

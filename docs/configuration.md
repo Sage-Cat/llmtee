@@ -7,6 +7,7 @@ llmtee reads its settings from environment variables. A YAML file (`--config` or
 | Variable | Default | |
 |---|---|---|
 | `LLMTEE_LISTEN` | `:8080` | listen address |
+| `LLMTEE_ALLOWED_HOST` | | accept only this HTTP Host, including the port when clients send it; for example `127.0.0.1:8080` for a loopback listener |
 | `DATABASE_URL` | `sqlite://llmtee.db` (`/data/llmtee.db` in Docker) | `sqlite://path` or `postgres://…` |
 | `LLMTEE_ADMIN_PASSWORD` | random, printed at startup | UI login, and bearer token for `/metrics` and `/mcp` |
 | `LLMTEE_UI_AUTH` | `true` | `false` if a reverse proxy already authenticates |
@@ -62,3 +63,19 @@ upstreams:
 ## Several instances
 
 With PostgreSQL, several llmtee instances can share one database. Each instance keeps its own budget counters in memory and re-reads them from the database every 10 seconds. A key can therefore overshoot its budget by what all instances spend within that window. With SQLite, run a single instance.
+
+## Reconcile OpenAI costs
+
+For a local SQLite database, `scripts/compare-openai-costs.py` compares stored
+estimates with daily totals from the OpenAI organization Costs API. Provide an
+OpenAI admin key with `OPENAI_ADMIN_KEY` or `--admin-key-file`, the API key ID for
+the billing scope, and the names of all llmtee keys that use it.
+
+```sh
+python3 scripts/compare-openai-costs.py --db llmtee.db \
+  --api-key-id key_example --agent batch-worker --agent summarizer \
+  --start 2026-01-01 --end 2026-02-01
+```
+
+The CSV includes complete UTC days and reports the count of unpriced requests.
+The OpenAI totals also include usage through the same API key outside llmtee.
