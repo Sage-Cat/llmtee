@@ -10,6 +10,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/garritfra/llmtee/internal/alerts"
@@ -103,6 +104,9 @@ func New(ctx context.Context, cfg *config.Config, version string) (*Server, erro
 	mux.Handle("/mcp", &mcp.Server{Store: s.Store, Keys: s.Keys, Budgets: s.Budgets, Authorized: u.Authorized, Version: version})
 	u.Register(mux)
 	s.Handler = securityHeaders(mux)
+	if cfg.AllowedHost != "" {
+		s.Handler = requireHost(cfg.AllowedHost, s.Handler)
+	}
 
 	bctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
@@ -130,6 +134,16 @@ func New(ctx context.Context, cfg *config.Config, version string) (*Server, erro
 			"retention_days", cfg.BodyRetentionDays)
 	}
 	return s, nil
+}
+
+func requireHost(host string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.EqualFold(r.Host, host) {
+			http.Error(w, "unexpected request host", http.StatusMisdirectedRequest)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func mustKeys(s *Server) []*store.Key {

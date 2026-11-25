@@ -43,6 +43,7 @@ type Alerts struct {
 // Config is the complete configuration.
 type Config struct {
 	Listen        string `yaml:"listen"`
+	AllowedHost   string `yaml:"allowed_host"`
 	DatabaseURL   string `yaml:"database_url"`
 	AdminPassword string `yaml:"admin_password"`
 	// UIAuth can be disabled when a reverse proxy already authenticates.
@@ -159,6 +160,7 @@ func (c *Config) applyEnv(environ []string) error {
 		}
 	}
 	str("LLMTEE_LISTEN", &c.Listen)
+	str("LLMTEE_ALLOWED_HOST", &c.AllowedHost)
 	str("DATABASE_URL", &c.DatabaseURL)
 	str("LLMTEE_DATABASE_URL", &c.DatabaseURL)
 	str("LLMTEE_ADMIN_PASSWORD", &c.AdminPassword)
